@@ -1,9 +1,9 @@
 ### Yeast mutualism genomics project
 
-* Project title: Fast evolution of mutualism using yeast as model system
+* Project title: Fast evolution of mutualism using yeast as model system (temporary name)
 * Authors: Liu et al.
 * Date: Jan-2024
-* Project summary: under construction
+* Project summary: Under construction (more detials will be updated when submitting the paper)
 * Yeast genome assembly: yeast_genome_assemly.slurm
 * Yeast genome quality: yeast_quast.slurm
 * Yeast SNP calling: yeast_SNP_calling.slurm
