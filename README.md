@@ -1,6 +1,6 @@
 ### Yeast mutualism genomics project
 
-* Project title: Fast evolution of mutualism using yeast as model system (temporary name)
+* Project title: Coevolutionary Selection in Mutualism (temporary name)
 * Authors: Liu et al.
 * Date: Jan-2024
 * Project summary: Under construction (more detials will be updated when submitting the paper)
