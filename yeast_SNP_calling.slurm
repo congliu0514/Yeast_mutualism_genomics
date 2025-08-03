@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH --mail-user="liu.cong@oist.jp"
 #SBATCH --job-name=genome_assemble
 #SBATCH --mail-type=BEGIN,FAIL,END
 #SBATCH --mem=500G
