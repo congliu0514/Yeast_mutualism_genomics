@@ -1,12 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=genome_assemble
-#SBATCH --mail-type=BEGIN,FAIL,END
-#SBATCH --mem=500G
-#SBATCH -p largemem
-#SBATCH -c 10
-#SBATCH -n 1
-#SBATCH -t 2-20
-export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
 
 strain="1063 1069 1051"
 ref_genome="../../refer/yeast_ref_genome.fna"
