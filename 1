@@ -48,24 +48,33 @@ print("Index build started. Thread alive:", t.is_alive())
 
 
 #4
-import os
+# Cell 4 - Monitor index build progress
+import os, faiss
 
-# Check file size
-idx = "/dbfs/rag_index/dpr_flat.faiss"
-if os.path.exists(idx):
-    gb = os.path.getsize(idx) / 1e9
+idx_path = "/dbfs/rag_index/dpr_flat.faiss"
+log_path = "/dbfs/rag_index/index_build.log"
+
+# Index size
+if os.path.exists(idx_path):
+    gb = os.path.getsize(idx_path) / 1e9
     passages = int(gb * 1e9 / (768 * 4))
-    print(f"Index: {gb:.2f} GB  (~{passages:,} passages / 21,000,000)")
+    print(f"Index: {gb:.2f} GB  (~{passages:,} / 21,000,000 passages)")
 else:
     print("Index file not yet created")
 
-# Check log
+# Log tail — read in binary mode (avoids DBFS errno 22)
 if os.path.exists(log_path):
-    with open(log_path) as f:
-        lines = f.readlines()
-    print("".join(lines[-8:]))
+    try:
+        with open(log_path, "rb") as f:
+            content = f.read().decode("utf-8", errors="replace")
+        lines = content.splitlines()
+        print("\n--- Last 10 log lines ---")
+        print("\n".join(lines[-10:]))
+    except Exception as e:
+        print(f"Log read error: {e}")
 else:
-    print("Log not yet written")
+    print("Log file not yet created")
 
-print(f"Thread alive: {t.is_alive()}")
+print(f"\nThread alive: {t.is_alive()}")
+
 
