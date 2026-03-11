@@ -1,80 +1,124 @@
 #1
-import sys, os
-sys.path.insert(0, os.getcwd())  # add repo root to path
+import sys, os, subprocess
+
+# Working directory = am-rag root (notebook is in the root)
+ROOT = os.getcwd()
+print(f"Root: {ROOT}")
+
 os.environ["HF_DATASETS_CACHE"] = "/dbfs/hf_cache"
 os.environ["HF_HOME"] = "/dbfs/hf_cache"
 os.makedirs("/dbfs/hf_cache", exist_ok=True)
 os.makedirs("/dbfs/rag_index", exist_ok=True)
-print("Working dir:", os.getcwd())
+os.makedirs(f"{ROOT}/data", exist_ok=True)
 
+sys.path.insert(0, ROOT)
+print("Setup done.")
 
 #2
-import json
-from datasets import load_dataset
+import os, json
 
-ds = load_dataset('hotpot_qa', 'fullwiki', split='validation')
-data = []
-for item in ds:
-    data.append({
-        'question': item['question'],
-        'answer': item['answer'],
-        'supporting_facts': list(zip(
-            item['supporting_facts']['title'],
-            item['supporting_facts']['sent_id']
-        )),
-    })
-os.makedirs("data", exist_ok=True)
-with open("data/hotpotqa_dev_fullwiki.json", "w") as f:
-    json.dump(data, f)
-print(f"Saved {len(data)} questions.")
+DATA_PATH = f"{ROOT}/data/hotpotqa_dev_fullwiki.json"
+
+if os.path.exists(DATA_PATH):
+    print(f"Already exists: {DATA_PATH}")
+else:
+    from datasets import load_dataset
+    print("Downloading hotpot_qa fullwiki validation...")
+    ds = load_dataset("hotpot_qa", "fullwiki", split="validation")
+    
+    records = []
+    for ex in ds:
+        records.append({
+            "question": ex["question"],
+            "answer": ex["answer"],
+            "supporting_facts": list(zip(ex["supporting_facts"]["title"],
+                                         ex["supporting_facts"]["sent_id"])),
+            "type": ex["type"],
+        })
+    
+    with open(DATA_PATH, "w") as f:
+        json.dump(records, f)
+    print(f"Saved {len(records)} questions to {DATA_PATH}")
+
 
 #3
-import sys, threading
+import subprocess, sys, os
 
-log_path = "/dbfs/rag_index/index_build.log"
+LOG = "/dbfs/rag_index/build.log"
+SCRIPT = f"{ROOT}/download_dpr_wiki.py"
 
-def run_with_log():
-    with open(log_path, "w", buffering=1) as log:
-        old_stdout = sys.stdout
-        sys.stdout = log
-        try:
-            download_dpr_wiki.main()
-        finally:
-            sys.stdout = old_stdout
+cmd = [
+    sys.executable, SCRIPT,
+    "--limit", "21000000",
+    "--checkpoint-every", "500",
+    "--index-dir", "/dbfs/rag_index"
+]
 
-t = threading.Thread(target=run_with_log, daemon=True)
-t.start()
-print("Index build started. Thread alive:", t.is_alive())
+print(f"Running: {' '.join(cmd)}")
+print(f"Log: {LOG}")
+
+with open(LOG, "w") as log_f:
+    proc = subprocess.Popen(cmd, stdout=log_f, stderr=log_f, text=True)
+
+print(f"PID: {proc.pid}")
+print("Index build running. Use Cell 4 to monitor.")
 
 
 #4
-# Cell 4 - Monitor index build progress
-import os, faiss
+import os, subprocess
 
-idx_path = "/dbfs/rag_index/dpr_flat.faiss"
-log_path = "/dbfs/rag_index/index_build.log"
+idx = "/dbfs/rag_index/dpr_flat.faiss"
+log = "/dbfs/rag_index/build.log"
 
-# Index size
-if os.path.exists(idx_path):
-    gb = os.path.getsize(idx_path) / 1e9
+# Index progress
+if os.path.exists(idx):
+    gb = os.path.getsize(idx) / 1e9
     passages = int(gb * 1e9 / (768 * 4))
-    print(f"Index: {gb:.2f} GB  (~{passages:,} / 21,000,000 passages)")
+    pct = passages / 21_000_000 * 100
+    print(f"Index: {gb:.2f} GB | {passages:,} / 21,000,000 passages ({pct:.1f}%)")
 else:
-    print("Index file not yet created")
+    print("Index: not yet created")
 
-# Log tail — read in binary mode (avoids DBFS errno 22)
-if os.path.exists(log_path):
-    try:
-        with open(log_path, "rb") as f:
-            content = f.read().decode("utf-8", errors="replace")
-        lines = content.splitlines()
-        print("\n--- Last 10 log lines ---")
-        print("\n".join(lines[-10:]))
-    except Exception as e:
-        print(f"Log read error: {e}")
+# Last 15 lines of log
+if os.path.exists(log):
+    result = subprocess.run(["tail", "-15", log], capture_output=True, text=True)
+    print(f"\n--- build.log (last 15 lines) ---\n{result.stdout}")
 else:
-    print("Log file not yet created")
+    print("Log: not yet created")
 
-print(f"\nThread alive: {t.is_alive()}")
+# Check if process is still running
+result2 = subprocess.run(["pgrep", "-f", "download_dpr_wiki"], capture_output=True, text=True)
+if result2.stdout.strip():
+    print(f"Process running (PID: {result2.stdout.strip()})")
+else:
+    print("Process: NOT running (finished or crashed)")
 
+
+#5
+import subprocess, sys, os
+
+LOG2 = "/dbfs/rag_index/experiment.log"
+SCRIPT2 = f"{ROOT}/run_twostage.py"
+
+cmd2 = [
+    sys.executable, SCRIPT2,
+    "--index-dir", "/dbfs/rag_index",
+    "--data", f"{ROOT}/data/hotpotqa_dev_fullwiki.json",
+    "--no-reader",
+]
+
+print(f"Running: {' '.join(cmd2)}")
+with open(LOG2, "w") as log_f:
+    proc2 = subprocess.Popen(cmd2, stdout=log_f, stderr=log_f, text=True)
+print(f"PID: {proc2.pid} | Log: {LOG2}")
+
+#6
+import subprocess
+
+log = "/dbfs/rag_index/experiment.log"
+result = subprocess.run(["tail", "-30", log], capture_output=True, text=True)
+print(result.stdout)
+
+alive = subprocess.run(["pgrep", "-f", "run_twostage"], capture_output=True, text=True)
+print(f"Process: {'running' if alive.stdout.strip() else 'done/crashed'}")
 
