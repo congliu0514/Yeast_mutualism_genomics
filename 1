@@ -44,7 +44,7 @@ else:
 #3
 import subprocess, sys, os
 
-LOG = "/dbfs/rag_index/build.log"
+LOG = "/tmp/build.log"
 SCRIPT = f"{ROOT}/download_dpr_wiki.py"
 
 cmd = [
@@ -55,43 +55,33 @@ cmd = [
 ]
 
 print(f"Running: {' '.join(cmd)}")
-print(f"Log: {LOG}")
-
 with open(LOG, "w") as log_f:
     proc = subprocess.Popen(cmd, stdout=log_f, stderr=log_f, text=True)
 
 print(f"PID: {proc.pid}")
-print("Index build running. Use Cell 4 to monitor.")
+print(f"Log: {LOG}")
+
 
 
 #4
-import os, subprocess
+import subprocess, os
 
 idx = "/dbfs/rag_index/dpr_flat.faiss"
-log = "/dbfs/rag_index/build.log"
+log = "/tmp/build.log"
 
-# Index progress
 if os.path.exists(idx):
     gb = os.path.getsize(idx) / 1e9
     passages = int(gb * 1e9 / (768 * 4))
-    pct = passages / 21_000_000 * 100
-    print(f"Index: {gb:.2f} GB | {passages:,} / 21,000,000 passages ({pct:.1f}%)")
+    print(f"Index: {gb:.2f} GB | {passages:,} / 21,000,000 ({passages/21_000_000*100:.1f}%)")
 else:
     print("Index: not yet created")
 
-# Last 15 lines of log
-if os.path.exists(log):
-    result = subprocess.run(["tail", "-15", log], capture_output=True, text=True)
-    print(f"\n--- build.log (last 15 lines) ---\n{result.stdout}")
-else:
-    print("Log: not yet created")
+result = subprocess.run(["tail", "-15", log], capture_output=True, text=True)
+print(f"\n--- build.log ---\n{result.stdout}")
 
-# Check if process is still running
-result2 = subprocess.run(["pgrep", "-f", "download_dpr_wiki"], capture_output=True, text=True)
-if result2.stdout.strip():
-    print(f"Process running (PID: {result2.stdout.strip()})")
-else:
-    print("Process: NOT running (finished or crashed)")
+alive = subprocess.run(["pgrep", "-f", "download_dpr_wiki"], capture_output=True, text=True)
+print(f"Process: {'running (PID: ' + alive.stdout.strip() + ')' if alive.stdout.strip() else 'NOT running'}")
+
 
 
 #5
