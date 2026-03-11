@@ -30,3 +30,20 @@ with open('data/hotpotqa_dev_fullwiki.json', 'w') as f:
 
 print(f'Saved {len(data)} questions to data/hotpotqa_dev_fullwiki.json')
 "
+
+
+
+%sh
+cd /tmp/am-rag
+HF_DATASETS_CACHE=/dbfs/hf_cache HF_HOME=/dbfs/hf_cache \
+nohup python download_dpr_wiki.py \
+  --limit 21000000 \
+  --checkpoint-every 500 \
+  --index-dir /dbfs/rag_index \
+  > /dbfs/rag_index/index_build.log 2>&1 &
+echo "PID: $!"
+
+
+
+####
+%sh tail -5 /dbfs/rag_index/index_build.log
