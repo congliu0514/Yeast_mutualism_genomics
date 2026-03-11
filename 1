@@ -1,0 +1,32 @@
+%sh
+cd /tmp/am-rag
+mkdir -p data
+
+python -c "
+from datasets import load_dataset
+import json, os
+
+os.environ['HF_DATASETS_CACHE'] = '/dbfs/hf_cache'
+
+print('Downloading HotpotQA fullwiki dev...')
+ds = load_dataset('hotpot_qa', 'fullwiki', split='validation')
+
+# Convert to the same format as the original JSON
+data = []
+for item in ds:
+    data.append({
+        'question': item['question'],
+        'answer': item['answer'],
+        'supporting_facts': list(zip(item['supporting_facts']['title'],
+                                     item['supporting_facts']['sent_id'])),
+        'context': {'title': item['context']['title'],
+                    'sentences': item['context']['sentences']},
+        'type': item['type'],
+        'level': item['level'],
+    })
+
+with open('data/hotpotqa_dev_fullwiki.json', 'w') as f:
+    json.dump(data, f)
+
+print(f'Saved {len(data)} questions to data/hotpotqa_dev_fullwiki.json')
+"
