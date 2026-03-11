@@ -30,17 +30,42 @@ print(f"Saved {len(data)} questions.")
 
 #3
 import sys, threading
-sys.argv = [
-    "download_dpr_wiki.py",
-    "--limit", "21000000",
-    "--checkpoint-every", "500",
-    "--index-dir", "/dbfs/rag_index",
-]
-import download_dpr_wiki
-t = threading.Thread(target=download_dpr_wiki.main)
+
+log_path = "/dbfs/rag_index/index_build.log"
+
+def run_with_log():
+    with open(log_path, "w", buffering=1) as log:
+        old_stdout = sys.stdout
+        sys.stdout = log
+        try:
+            download_dpr_wiki.main()
+        finally:
+            sys.stdout = old_stdout
+
+t = threading.Thread(target=run_with_log, daemon=True)
 t.start()
-print("Index build started in background thread.")
+print("Index build started. Thread alive:", t.is_alive())
 
 
 #4
-%sh tail -5 /dbfs/rag_index/index_build.log
+import os
+
+# Check file size
+idx = "/dbfs/rag_index/dpr_flat.faiss"
+if os.path.exists(idx):
+    gb = os.path.getsize(idx) / 1e9
+    passages = int(gb * 1e9 / (768 * 4))
+    print(f"Index: {gb:.2f} GB  (~{passages:,} passages / 21,000,000)")
+else:
+    print("Index file not yet created")
+
+# Check log
+if os.path.exists(log_path):
+    with open(log_path) as f:
+        lines = f.readlines()
+    print("".join(lines[-8:]))
+else:
+    print("Log not yet written")
+
+print(f"Thread alive: {t.is_alive()}")
+
