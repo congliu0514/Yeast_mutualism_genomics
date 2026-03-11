@@ -122,3 +122,23 @@ print(result.stdout)
 alive = subprocess.run(["pgrep", "-f", "run_twostage"], capture_output=True, text=True)
 print(f"Process: {'running' if alive.stdout.strip() else 'done/crashed'}")
 
+
+
+
+
+##### 
+import subprocess, sys, os
+
+SCRIPT = f"{ROOT}/download_dpr_wiki.py"
+cmd = [
+    sys.executable, SCRIPT,
+    "--limit", "21000000",
+    "--checkpoint-every", "500",
+    "--index-dir", "/dbfs/rag_index"
+]
+
+# Run synchronously for 10 seconds to capture error
+result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+print("STDOUT:", result.stdout[:2000])
+print("STDERR:", result.stderr[:2000])
+print("Return code:", result.returncode)
