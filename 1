@@ -1,49 +1,46 @@
-%sh
-cd /tmp/am-rag
-mkdir -p data
+#1
+import sys, os
+sys.path.insert(0, os.getcwd())  # add repo root to path
+os.environ["HF_DATASETS_CACHE"] = "/dbfs/hf_cache"
+os.environ["HF_HOME"] = "/dbfs/hf_cache"
+os.makedirs("/dbfs/hf_cache", exist_ok=True)
+os.makedirs("/dbfs/rag_index", exist_ok=True)
+print("Working dir:", os.getcwd())
 
-python -c "
+
+#2
+import json
 from datasets import load_dataset
-import json, os
 
-os.environ['HF_DATASETS_CACHE'] = '/dbfs/hf_cache'
-
-print('Downloading HotpotQA fullwiki dev...')
 ds = load_dataset('hotpot_qa', 'fullwiki', split='validation')
-
-# Convert to the same format as the original JSON
 data = []
 for item in ds:
     data.append({
         'question': item['question'],
         'answer': item['answer'],
-        'supporting_facts': list(zip(item['supporting_facts']['title'],
-                                     item['supporting_facts']['sent_id'])),
-        'context': {'title': item['context']['title'],
-                    'sentences': item['context']['sentences']},
-        'type': item['type'],
-        'level': item['level'],
+        'supporting_facts': list(zip(
+            item['supporting_facts']['title'],
+            item['supporting_facts']['sent_id']
+        )),
     })
-
-with open('data/hotpotqa_dev_fullwiki.json', 'w') as f:
+os.makedirs("data", exist_ok=True)
+with open("data/hotpotqa_dev_fullwiki.json", "w") as f:
     json.dump(data, f)
+print(f"Saved {len(data)} questions.")
 
-print(f'Saved {len(data)} questions to data/hotpotqa_dev_fullwiki.json')
-"
-
-
-
-%sh
-cd /tmp/am-rag
-HF_DATASETS_CACHE=/dbfs/hf_cache HF_HOME=/dbfs/hf_cache \
-nohup python download_dpr_wiki.py \
-  --limit 21000000 \
-  --checkpoint-every 500 \
-  --index-dir /dbfs/rag_index \
-  > /dbfs/rag_index/index_build.log 2>&1 &
-echo "PID: $!"
-
+#3
+import sys, threading
+sys.argv = [
+    "download_dpr_wiki.py",
+    "--limit", "21000000",
+    "--checkpoint-every", "500",
+    "--index-dir", "/dbfs/rag_index",
+]
+import download_dpr_wiki
+t = threading.Thread(target=download_dpr_wiki.main)
+t.start()
+print("Index build started in background thread.")
 
 
-####
+#4
 %sh tail -5 /dbfs/rag_index/index_build.log
