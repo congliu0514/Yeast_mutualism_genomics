@@ -87,7 +87,7 @@ print(f"Process: {'running (PID: ' + alive.stdout.strip() + ')' if alive.stdout.
 #5
 import subprocess, sys, os
 
-LOG2 = "/dbfs/rag_index/experiment.log"
+LOG2 = "/tmp/experiment.log"
 SCRIPT2 = f"{ROOT}/run_twostage.py"
 
 cmd2 = [
@@ -105,12 +105,11 @@ print(f"PID: {proc2.pid} | Log: {LOG2}")
 #6
 import subprocess
 
-log = "/dbfs/rag_index/experiment.log"
-result = subprocess.run(["tail", "-30", log], capture_output=True, text=True)
+result = subprocess.run(["tail", "-30", "/tmp/experiment.log"], capture_output=True, text=True)
 print(result.stdout)
 
 alive = subprocess.run(["pgrep", "-f", "run_twostage"], capture_output=True, text=True)
-print(f"Process: {'running' if alive.stdout.strip() else 'done/crashed'}")
+print(f"Process: {'running (PID: ' + alive.stdout.strip() + ')' if alive.stdout.strip() else 'done/crashed'}")
 
 
 
