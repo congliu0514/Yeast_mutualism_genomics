@@ -1,0 +1,13 @@
+# Cleanup cell — run once before restarting build
+import os
+
+# Delete both corrupted files so build starts fresh
+for f in ["/dbfs/rag_index/dpr_flat.faiss", 
+          "/dbfs/rag_index/dpr_doc_map.json",
+          "/dbfs/rag_index/dpr_doc_map.pkl"]:
+    if os.path.exists(f):
+        os.remove(f)
+        print(f"Deleted: {f}")
+    else:
+        print(f"Not found: {f}")
+print("Ready for fresh start.")
