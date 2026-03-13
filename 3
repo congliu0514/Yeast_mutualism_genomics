@@ -1,30 +1,24 @@
-import faiss, pickle, os
+import pickle
 
-index_dir = "/dbfs/rag_index"
-flat_index = faiss.read_index(f"{index_dir}/dpr_flat.faiss")
-print(f"Index passages: {flat_index.ntotal:,}")
-
-with open(f"{index_dir}/dpr_doc_map.pkl", "rb") as f:
+with open("/dbfs/rag_index/dpr_doc_map.pkl", "rb") as f:
     raw = pickle.load(f)
 doc_map = {int(k): v for k, v in raw.items()}
-print(f"Doc_map entries: {len(doc_map):,}")
 
-# Check first and last few entries
-for k in sorted(doc_map.keys())[:3]:
-    print(f"  [{k}] {doc_map[k].get('title','')}")
-print("  ...")
-for k in sorted(doc_map.keys())[-3:]:
-    print(f"  [{k}] {doc_map[k].get('title','')}")
-
-# Check if HotpotQA gold titles exist in doc_map
-import json
-with open("/Workspace/Users/cong.x.liu@gsk.com/Drafts/am-rag/data/hotpotqa_dev_fullwiki.json") as f:
-    questions = json.load(f)
-
+# Build title set
 all_titles = {v.get("title","").lower().strip() for v in doc_map.values()}
-gold_titles = {fact[0].lower().strip() for q in questions[:100] 
-               for fact in q.get("supporting_facts",[])}
-overlap = gold_titles & all_titles
-print(f"\nGold titles (first 100 questions): {len(gold_titles)}")
-print(f"Found in doc_map: {len(overlap)} / {len(gold_titles)}")
-print(f"Missing: {list(gold_titles - all_titles)[:5]}")
+
+# Check specific missing titles with fuzzy search
+missing = ['winner (band)', 'bordan tkachuk', 'brown county, kansas', 
+           'in the realm of the hackers', 'masakazu katsura']
+
+print("=== Exact match ===")
+for t in missing:
+    print(f"  '{t}': {'FOUND' if t in all_titles else 'MISSING'}")
+
+print("\n=== Fuzzy (first word) ===")
+for t in missing:
+    first_word = t.split()[0]
+    matches = [x for x in all_titles if first_word in x][:3]
+    print(f"  '{t}' → {matches}")
+
+print(f"\nTotal unique titles in doc_map: {len(all_titles):,}")
