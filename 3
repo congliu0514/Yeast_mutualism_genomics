@@ -1,13 +1,30 @@
-# Cleanup cell — run once before restarting build
-import os
+import faiss, pickle, os
 
-# Delete both corrupted files so build starts fresh
-for f in ["/dbfs/rag_index/dpr_flat.faiss", 
-          "/dbfs/rag_index/dpr_doc_map.json",
-          "/dbfs/rag_index/dpr_doc_map.pkl"]:
-    if os.path.exists(f):
-        os.remove(f)
-        print(f"Deleted: {f}")
-    else:
-        print(f"Not found: {f}")
-print("Ready for fresh start.")
+index_dir = "/dbfs/rag_index"
+flat_index = faiss.read_index(f"{index_dir}/dpr_flat.faiss")
+print(f"Index passages: {flat_index.ntotal:,}")
+
+with open(f"{index_dir}/dpr_doc_map.pkl", "rb") as f:
+    raw = pickle.load(f)
+doc_map = {int(k): v for k, v in raw.items()}
+print(f"Doc_map entries: {len(doc_map):,}")
+
+# Check first and last few entries
+for k in sorted(doc_map.keys())[:3]:
+    print(f"  [{k}] {doc_map[k].get('title','')}")
+print("  ...")
+for k in sorted(doc_map.keys())[-3:]:
+    print(f"  [{k}] {doc_map[k].get('title','')}")
+
+# Check if HotpotQA gold titles exist in doc_map
+import json
+with open("/Workspace/Users/cong.x.liu@gsk.com/Drafts/am-rag/data/hotpotqa_dev_fullwiki.json") as f:
+    questions = json.load(f)
+
+all_titles = {v.get("title","").lower().strip() for v in doc_map.values()}
+gold_titles = {fact[0].lower().strip() for q in questions[:100] 
+               for fact in q.get("supporting_facts",[])}
+overlap = gold_titles & all_titles
+print(f"\nGold titles (first 100 questions): {len(gold_titles)}")
+print(f"Found in doc_map: {len(overlap)} / {len(gold_titles)}")
+print(f"Missing: {list(gold_titles - all_titles)[:5]}")
